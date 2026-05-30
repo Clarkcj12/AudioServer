@@ -1,0 +1,68 @@
+# ──────────────────────────────────────────
+# Java / Maven / Gradle  (Plugin)
+# ──────────────────────────────────────────
+*.class
+*.jar
+*.war
+*.ear
+target/
+build/
+out/
+.gradle/
+gradle-app.setting
+!gradle-wrapper.jar
+
+# ──────────────────────────────────────────
+# Node.js  (Server / Relay / Client)
+# ──────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+dist/
+.next/
+.nuxt/
+
+# ──────────────────────────────────────────
+# Python  (Server / Relay)
+# ──────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+.eggs/
+
+# ──────────────────────────────────────────
+# Environment & secrets
+# ──────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+config.local.*
+
+# ──────────────────────────────────────────
+# IDEs
+# ──────────────────────────────────────────
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+
+# ──────────────────────────────────────────
+# OS
+# ──────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini

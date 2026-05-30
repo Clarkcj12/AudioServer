@@ -1,0 +1,7 @@
+name: Harmonia
+version: '${version}'
+main: club.imaginears.harmonia.paper.HarmoniaPlugin
+description: Magical audio integration for Minecraft
+api-version: '1.21'
+softdepend:
+  - WorldGuard
