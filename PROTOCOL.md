@@ -195,6 +195,13 @@ Sent once after successful token validation.
 }
 ```
 
+**Connect-time state replay (behavior, not a new event):** immediately after `session_ready`, the
+relay reads the player's persisted `AudioState` (`harmonia:session:{uuid}`) and, if a track is
+actively playing (`trackId` set and `action` is `PLAY`/`RESUME`), emits a single `audio_command`
+with `action: "PLAY"`. This is how a player who is already inside an audio region hears it on
+connect without waiting to cross a boundary. The relay emits `session_ready` + replay to the socket
+**before** joining its `player:{uuid}` room, so live region events always arrive after the replay.
+
 #### `region_event`
 Forwarded verbatim from the Redis `harmonia:events` channel to the player's room. The region→track binding lives on the WorldGuard region (`harmonia-audio` flag), resolved by Paper — the relay does not map regions itself. The client plays `trackId` on `ENTER` and stops it on `EXIT`.
 ```typescript

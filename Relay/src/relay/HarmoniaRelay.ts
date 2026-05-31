@@ -1,6 +1,7 @@
 import type { Server, Namespace, Socket } from 'socket.io';
 import { TokenService } from '../auth/TokenService.js';
-import type { AudioCommand, RegionEvent, SessionLink, SessionUnlink } from './types.js';
+import type { SessionStore } from '../redis/SessionStore.js';
+import type { AudioCommand, AudioState, RegionEvent, SessionLink, SessionUnlink } from './types.js';
 
 /**
  * Wires up the two Socket.IO namespaces:
@@ -11,9 +12,11 @@ export class HarmoniaRelay {
     private readonly plugins: Namespace;
     private readonly clients: Namespace;
     private readonly tokens: TokenService;
+    private readonly sessions: SessionStore;
 
-    constructor(io: Server, tokens: TokenService = new TokenService()) {
+    constructor(io: Server, sessions: SessionStore, tokens: TokenService = new TokenService()) {
         this.tokens = tokens;
+        this.sessions = sessions;
         this.plugins = io.of('/plugin');
         this.clients = io.of('/client');
         this.registerPluginHandlers();
@@ -94,14 +97,50 @@ export class HarmoniaRelay {
 
         this.clients.on('connection', (socket: Socket) => {
             const playerId = socket.data.player as string;
-
-            socket.join(`player:${playerId}`);
-            console.log(`[client] connected  player=${playerId}  id=${socket.id}`);
-            socket.emit('session_ready', { player: playerId });
+            void this.onClientConnected(socket, playerId);
 
             socket.on('disconnect', (reason) => {
                 console.log(`[client] disconnected  player=${playerId}  reason=${reason}`);
             });
         });
     }
+
+    /**
+     * Read current state → emit (session_ready + any replay) → join the room, in that order.
+     * Joining last guarantees a live region event can't broadcast in ahead of the replay and
+     * leave the client on a stale track. Direct socket.emit works regardless of room membership.
+     */
+    private async onClientConnected(socket: Socket, playerId: string): Promise<void> {
+        console.log(`[client] connected  player=${playerId}  id=${socket.id}`);
+
+        let state: AudioState | null = null;
+        try {
+            state = await this.sessions.current(playerId);
+        } catch (err) {
+            console.error(`[client] failed to read session for ${playerId}`, err);
+        }
+
+        socket.emit('session_ready', { player: playerId });
+
+        if (shouldReplay(state)) {
+            const cmd: AudioCommand = {
+                player: playerId,
+                source: 'relay',
+                trackId: state.trackId,
+                action: 'PLAY',
+                volume: state.volume,
+            };
+            socket.emit('audio_command', cmd);
+            console.log(`[client] replayed track=${state.trackId} player=${playerId}`);
+        }
+
+        socket.join(`player:${playerId}`);
+    }
+}
+
+/** Replay only an actively-playing track. Mirrors AudioState.isPlaying() on the Java side. */
+function shouldReplay(state: AudioState | null): state is AudioState & { trackId: string } {
+    return state !== null
+        && state.trackId !== null
+        && (state.action === 'PLAY' || state.action === 'RESUME');
 }

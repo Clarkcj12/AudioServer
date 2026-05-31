@@ -4,6 +4,7 @@ import { Server } from 'socket.io';
 import { Redis } from 'ioredis';
 import { HarmoniaRelay } from './relay/HarmoniaRelay.js';
 import { RedisSubscriber } from './redis/RedisSubscriber.js';
+import { SessionStore } from './redis/SessionStore.js';
 
 export function createServer() {
     const app = express();
@@ -21,12 +22,14 @@ export function createServer() {
         connectionStateRecovery: {},
     });
 
-    const relay = new HarmoniaRelay(io);
-
-    // Dedicated subscriber connection — once subscribed, ioredis can't run other commands on it.
-    // The future commands publisher (harmonia:commands:{serverId} → Paper) must use its OWN connection.
     const redisUrl = process.env.REDIS_URL ?? 'redis://localhost:6379';
+
+    // Two connections by necessity: once `sub` enters subscribe mode it can't run other commands.
+    // `kv` handles ordinary commands (session reads now; the commands publisher to Paper later).
     const sub = new Redis(redisUrl);
+    const kv = new Redis(redisUrl);
+
+    const relay = new HarmoniaRelay(io, new SessionStore(kv));
     new RedisSubscriber(sub, relay.clientNamespace).start().catch((err) => {
         console.error('[redis] subscriber failed to start', err);
     });
