@@ -1,4 +1,4 @@
-import type { AudioAction } from '../relay/types.js';
+import type { AudioAction, PositionUpdate } from '../relay/types.js';
 
 interface TrackHandle {
     source: AudioBufferSourceNode;
@@ -26,6 +26,43 @@ export class AudioEngine {
         if (this.ctx.state === 'suspended') void this.ctx.resume();
     }
 
+    /** Releases the AudioContext. Call on teardown. */
+    async close(): Promise<void> {
+        if (this.ctx.state !== 'closed') await this.ctx.close();
+    }
+
+    /**
+     * Orients the listener from the player's own position. Minecraft is Y-up like Web Audio;
+     * only Z is flipped. Forward vector per PROTOCOL.md (already in Web Audio space).
+     *
+     * Currently inert: region audio sources have no world coordinates yet, so nothing is
+     * spatially panned. Wired now so it's correct the moment sources gain positions.
+     */
+    updateListener(pos: PositionUpdate): void {
+        const yaw = (pos.yaw * Math.PI) / 180;
+        const pitch = (pos.pitch * Math.PI) / 180;
+        const fx = -Math.sin(yaw) * Math.cos(pitch);
+        const fy = -Math.sin(pitch);
+        const fz = -Math.cos(yaw) * Math.cos(pitch);
+
+        const l = this.ctx.listener;
+        if (l.positionX) {
+            l.positionX.value = pos.x;
+            l.positionY.value = pos.y;
+            l.positionZ.value = -pos.z;   // Minecraft +Z = Web Audio −Z
+            l.forwardX.value = fx;
+            l.forwardY.value = fy;
+            l.forwardZ.value = fz;
+            l.upX.value = 0;
+            l.upY.value = 1;
+            l.upZ.value = 0;
+        } else {
+            // Deprecated API for older Safari.
+            l.setPosition(pos.x, pos.y, -pos.z);
+            l.setOrientation(fx, fy, fz, 0, 1, 0);
+        }
+    }
+
     async dispatch(trackId: string, action: AudioAction, volume: number): Promise<void> {
         switch (action) {
             case 'PLAY':    await this.play(trackId, volume); break;
@@ -39,10 +76,17 @@ export class AudioEngine {
     private async play(trackId: string, volume: number): Promise<void> {
         this.stop(trackId);
 
-        // TODO: resolve trackId to a URL via a track registry
+        // TODO: resolve trackId to a URL via a track registry (audio hosting not built yet).
         const url = `/audio/${trackId}`;
-        const response = await fetch(url);
-        const buffer = await this.ctx.decodeAudioData(await response.arrayBuffer());
+        let buffer: AudioBuffer;
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            buffer = await this.ctx.decodeAudioData(await response.arrayBuffer());
+        } catch (err) {
+            console.warn(`[audio] could not load track "${trackId}":`, err);
+            return;
+        }
 
         const source = this.ctx.createBufferSource();
         const gain = this.ctx.createGain();

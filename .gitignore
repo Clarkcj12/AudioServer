@@ -23,6 +23,7 @@ pnpm-debug.log*
 dist/
 .next/
 .nuxt/
+*.tsbuildinfo
 
 # ──────────────────────────────────────────
 # Python  (Server / Relay)
