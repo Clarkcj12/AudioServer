@@ -1,0 +1,23 @@
+# Local integration stack: Redis + relay, no Minecraft servers required.
+# The Client (vite) and the dev:simulate/dev:verify scripts run on the host against
+# the ports exposed here. See INTEGRATION.md.
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  relay:
+    build: ./Relay
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: "3000"
+      REDIS_URL: redis://redis:6379
+      PLUGIN_SECRET: dev-secret
+      CLIENT_URL: http://localhost:5173   # vite dev origin — socket.io CORS checks this
+      AUDIO_DIR: /app/audio
+    volumes:
+      - ./Relay/audio:/app/audio          # serve audio assets (incl. the generated tone)
+    depends_on:
+      - redis
