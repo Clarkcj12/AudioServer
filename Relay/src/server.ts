@@ -1,4 +1,5 @@
 import express from 'express';
+import { resolve } from 'node:path';
 import { createServer as createHttpServer } from 'node:http';
 import { Server } from 'socket.io';
 import { Redis } from 'ioredis';
@@ -36,6 +37,14 @@ export function createServer() {
 
     app.use(express.json());
     app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+
+    // Audio assets: trackId is the filename (e.g. "castle-theme.ogg"), so the region flag
+    // value maps straight to a file here. express.static normalizes the path and blocks
+    // `..` traversal, sets Content-Type from the extension, and supports range requests.
+    // Kept same-origin (via the client's dev proxy / prod gateway) so decodeAudioData needs no CORS.
+    const audioDir = resolve(process.env.AUDIO_DIR ?? 'audio');
+    app.use('/audio', express.static(audioDir));
+    console.log(`[http] serving audio from ${audioDir}`);
 
     return http;
 }

@@ -9,6 +9,10 @@ export default defineConfig({
                 target: 'http://localhost:3000',
                 ws: true,
             },
+            // Audio assets are served by the relay; keep them same-origin so decodeAudioData needs no CORS.
+            '/audio': {
+                target: 'http://localhost:3000',
+            },
         },
     },
 });

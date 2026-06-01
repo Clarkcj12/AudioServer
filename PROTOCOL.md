@@ -231,6 +231,22 @@ Forwarded from the Redis `harmonia:positions` channel to the player's room at **
 
 ---
 
+## Audio Assets
+
+`trackId` is the **filename** of an audio asset. The relay serves these as static files at
+`GET /audio/{trackId}` from its `AUDIO_DIR` (e.g. region flag `harmonia-audio = castle-theme.ogg`
+→ client fetches `/audio/castle-theme.ogg`). The client loads the file with `decodeAudioData`, so
+assets must be a browser-decodable format (`.ogg`, `.mp3`, `.wav`, `.m4a`, `.opus`).
+
+Audio is served **same-origin** with the client (dev: vite proxies `/audio` → relay; prod: the
+gateway routes `/audio` to the relay), so `decodeAudioData` needs no CORS. Serving from a separate
+origin/CDN later requires an `Access-Control-Allow-Origin` header on the audio response.
+
+A URL-indirection registry (trackId → arbitrary/external media URL, metadata, crossfade) is the
+Phase 4 media-queue model and is out of scope for v1.
+
+---
+
 ## Coordinate System
 
 Minecraft and Web Audio both use **Y-up**. Direct axis mapping:
