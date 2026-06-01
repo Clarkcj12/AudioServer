@@ -4,8 +4,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Sent Paper → Velocity when a server-switch is initiated.
- * Velocity stores the active track and delivers it via {@link SessionSync} on the destination.
+ * Reserved, unused in v1. Velocity detects server switches itself via {@code ServerConnectedEvent}
+ * (it already knows the target), so Paper never needs to announce a transfer — the active track is
+ * synced continuously via {@link SessionSync} instead.
  */
 public record PlayerTransfer(
         UUID player,

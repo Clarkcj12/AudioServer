@@ -1,8 +1,11 @@
 package club.imaginears.harmonia.paper;
 
+import club.imaginears.harmonia.core.message.MessageCodec;
 import club.imaginears.harmonia.paper.config.HarmoniaConfig;
 import club.imaginears.harmonia.paper.listener.PlayerConnectionListener;
 import club.imaginears.harmonia.paper.listener.RegionListener;
+import club.imaginears.harmonia.paper.messaging.PluginMessenger;
+import club.imaginears.harmonia.paper.messaging.SessionSyncListener;
 import club.imaginears.harmonia.paper.redis.CommandSubscriber;
 import club.imaginears.harmonia.paper.redis.RedisPublisher;
 import club.imaginears.harmonia.paper.redis.RedisService;
@@ -35,11 +38,17 @@ public final class HarmoniaPlugin extends JavaPlugin {
         RedisPublisher publisher = new RedisPublisher(redisService, config.serverId());
         new CommandSubscriber(this, config.serverId(), redisService, publisher);
 
+        // Paper ↔ Velocity plugin messaging (harmonia:v1) for cross-server audio handoff.
+        getServer().getMessenger().registerOutgoingPluginChannel(this, MessageCodec.CHANNEL);
+        getServer().getMessenger().registerIncomingPluginChannel(
+                this, MessageCodec.CHANNEL, new SessionSyncListener(this, config.serverId(), publisher));
+        PluginMessenger messenger = new PluginMessenger(this, config.serverId());
+
         PluginManager pm = getServer().getPluginManager();
-        pm.registerEvents(new PlayerConnectionListener(config.serverId(), publisher), this);
+        pm.registerEvents(new PlayerConnectionListener(publisher), this);
 
         if (pm.isPluginEnabled("WorldGuard")) {
-            pm.registerEvents(new RegionListener(config.serverId(), publisher), this);
+            pm.registerEvents(new RegionListener(config.serverId(), publisher, messenger), this);
             getLogger().info("WorldGuard region tracking enabled.");
         }
 

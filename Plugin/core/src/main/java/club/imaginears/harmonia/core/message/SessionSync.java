@@ -4,8 +4,12 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Sent Velocity → Paper when a player lands on a backend server.
- * Carries the player's active audio state so playback resumes seamlessly.
+ * Carries a player's active audio track over the {@code harmonia:v1} channel. Bidirectional:
+ *  - Paper → Velocity on each region audio-state change (Velocity caches the latest track);
+ *  - Velocity → Paper (destination) on a server switch, to restore the carried track.
+ *
+ * The destination re-persists {@code AudioState}; it never re-emits playback (the browser
+ * session is continuous across the switch, so the track keeps playing).
  */
 public record SessionSync(
         UUID player,

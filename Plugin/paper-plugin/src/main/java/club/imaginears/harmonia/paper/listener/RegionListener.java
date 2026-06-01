@@ -1,9 +1,11 @@
 package club.imaginears.harmonia.paper.listener;
 
 import club.imaginears.harmonia.core.message.AudioAction;
+import club.imaginears.harmonia.core.message.AudioCommand;
 import club.imaginears.harmonia.core.message.RegionEvent;
 import club.imaginears.harmonia.core.message.RegionEventType;
 import club.imaginears.harmonia.core.model.AudioState;
+import club.imaginears.harmonia.paper.messaging.PluginMessenger;
 import club.imaginears.harmonia.paper.redis.RedisPublisher;
 import club.imaginears.harmonia.paper.region.AudioFlag;
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
@@ -40,12 +42,14 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class RegionListener implements Listener {
     private final String serverId;
     private final RedisPublisher publisher;
+    private final PluginMessenger messenger;
     /** Per player: regionId → trackId for the audio regions they are currently inside. */
     private final Map<UUID, Map<String, String>> playerRegions = new ConcurrentHashMap<>();
 
-    public RegionListener(String serverId, RedisPublisher publisher) {
+    public RegionListener(String serverId, RedisPublisher publisher, PluginMessenger messenger) {
         this.serverId = serverId;
         this.publisher = publisher;
+        this.messenger = messenger;
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -92,12 +96,16 @@ public final class RegionListener implements Listener {
                 String trackId = entry.getValue();
                 publisher.publishRegionEvent(new RegionEvent(uuid, source, entry.getKey(), RegionEventType.ENTER, trackId));
                 publisher.saveSession(playing(uuid, trackId));
+                // Tell Velocity the active track so it survives a server switch.
+                messenger.syncActiveTrack(player, Optional.of(
+                        new AudioCommand(uuid, source, trackId, AudioAction.PLAY, 1.0f)));
             }
         }
         for (Map.Entry<String, String> entry : previous.entrySet()) {
             if (!current.containsKey(entry.getKey())) {
                 publisher.publishRegionEvent(new RegionEvent(uuid, source, entry.getKey(), RegionEventType.EXIT, entry.getValue()));
                 publisher.saveSession(stopped(uuid));
+                messenger.syncActiveTrack(player, Optional.empty());
             }
         }
 

@@ -150,6 +150,61 @@ Sent by Relay back to Paper so Paper can update `AudioState` in Redis for sessio
 
 ---
 
+## Plugin Messaging (Paper ↔ Velocity)
+
+Cross-server audio handoff is coordinated over Velocity's plugin-messaging channel
+**`harmonia:v1`**, **not** through the relay or Redis. Messages use the binary `MessageCodec`
+(version byte + type byte + fields) in the Java `core` module.
+
+The handoff is **state synchronization, not playback resumption**: a backend switch does not
+disconnect the browser (the relay session is keyed by UUID and persists), so the client keeps
+playing throughout. The destination only re-persists the correct `AudioState`; it never re-emits
+a `PLAY`, which would restart the track audibly.
+
+### Flow
+
+```
+Player on server A, track T playing
+        │
+        ▼
+A's region audio changes → Paper A sends SessionSync{activeTrack} to Velocity   (on every enter/exit)
+        │
+        ▼
+Velocity caches player → activeTrack   (does not forward to the client)
+        │
+        ▼
+Player switches A → B  (Velocity ServerConnectedEvent, previousServer present)
+        │
+        ▼
+Velocity sends cached SessionSync{activeTrack} to server B
+        │
+        ▼
+Paper B persists AudioState (harmonia:session:{uuid}) — no re-emit; client keeps playing T
+```
+
+### `SessionSync`  (bidirectional)
+```
+player:      UUID
+source:      string         // "paper:{serverId}" or "velocity"
+activeTrack: AudioCommand?  // absent = nothing playing
+```
+- **Paper → Velocity**, on each region audio-state change, so Velocity always holds the latest track.
+- **Velocity → Paper (destination)**, on a server switch, to restore the carried track.
+
+### `PlayerTransfer`  (reserved)
+Defined in `core` but **unused in v1**. Velocity detects switches itself via `ServerConnectedEvent`
+(it already knows the target), so Paper never needs to announce a transfer.
+
+### Limitations (v1)
+- Handoff fidelity depends on Paper's audio-state tracking: a player who logged in *already inside*
+  a region generates no change event, so Velocity never learns the track and nothing is restored
+  (same class as the join-inside-region gap).
+- A region-scoped track logically continues after the switch even though the player has left the
+  origin region (the EXIT correctly never fired — a switch is not a walk-out). Region-vs-global
+  track distinction is v2.
+
+---
+
 ## Socket.IO Events
 
 ### Velocity → Relay (`/plugin` namespace)
