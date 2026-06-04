@@ -25,4 +25,13 @@ export class SessionStore {
             return null;
         }
     }
+
+    /**
+     * Deletes the player's persisted state. The relay owns this on `session_unlink` because it
+     * alone knows a disconnect is genuine (a server switch never unlinks) and has Redis access —
+     * so Paper must NOT delete on its own quit (which also fires on a switch).
+     */
+    async remove(player: string): Promise<void> {
+        await this.redis.del(sessionKey(player));
+    }
 }

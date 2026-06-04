@@ -60,6 +60,9 @@ export class HarmoniaRelay {
                     return;
                 }
                 this.tokens.revoke(payload.player);
+                // Genuine disconnect (a server switch never unlinks): clear the persisted state.
+                this.sessions.remove(payload.player).catch((err) =>
+                    console.error(`[plugin] failed to delete session for ${payload.player}`, err));
                 console.log(`[plugin] session_unlink  player=${payload.player}`);
             });
 

@@ -26,6 +26,8 @@ public final class PlayerConnectionListener implements Listener {
     public void onQuit(PlayerQuitEvent event) {
         var uuid = event.getPlayer().getUniqueId();
         publisher.untrackPlayer(uuid);
-        publisher.deleteSession(uuid);
+        // Don't delete the session here: PlayerQuitEvent also fires on a server switch, which would
+        // wipe state the player is still using. The relay deletes it on session_unlink (a genuine
+        // disconnect — a switch never unlinks), so a dropped handoff message can't leave it empty.
     }
 }

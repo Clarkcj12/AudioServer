@@ -29,10 +29,6 @@ public final class RedisPublisher {
         redis.async().expire(key, SESSION_TTL_SECONDS);
     }
 
-    public void deleteSession(UUID player) {
-        redis.async().del(RedisKeys.sessionKey(player));
-    }
-
     public void publishPosition(UUID player, String source, Location location) {
         redis.async().publish(RedisKeys.CHANNEL_POSITIONS, MessageJson.serializePosition(player, source, location));
     }

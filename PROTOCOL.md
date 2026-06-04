@@ -219,7 +219,10 @@ Emitted when Velocity is ready to hand a player's token to the browser.
 ```
 
 #### `session_unlink`
-Emitted on player disconnect or unrecoverable session end. Invalidates any pending token.
+Emitted on genuine player disconnect (a backend server switch does **not** unlink). The relay
+invalidates any pending token **and deletes the player's persisted `AudioState`**
+(`harmonia:session:{uuid}`) — it is the authoritative cleanup point, so Paper does not delete on
+its own quit (which would also fire on a switch).
 ```typescript
 {
   player: string;   // UUID
